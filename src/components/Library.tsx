@@ -7,7 +7,7 @@ import { CloudIcon, GridIcon, ListIcon, SearchIcon, WifiOffIcon } from './Icons'
 
 export const PROVIDER_SHORT: Record<ProviderId, string> = { google: 'Drive', onedrive: 'OneDrive', icloud: 'iCloud' };
 
-function useDocs() {
+export function useDocs() {
   const [list, setList] = useState<DocRecord[] | null>(null);
   useEffect(() => {
     const load = () => void docs.all().then(setList);

@@ -7,11 +7,17 @@ export const tokenStore = {
   del(k: string) { try { sessionStorage.removeItem('scanlio.' + k); } catch { /* ignore */ } },
 };
 
-/** Client IDs: build-time env first, then user-supplied values saved from Settings. */
+export type CredKey = 'google' | 'googleKey' | 'microsoft';
+const ENV: Record<CredKey, string | undefined> = {
+  google: import.meta.env.VITE_GOOGLE_CLIENT_ID,
+  googleKey: import.meta.env.VITE_GOOGLE_API_KEY,
+  microsoft: import.meta.env.VITE_MS_CLIENT_ID,
+};
+
+/** OAuth client IDs / API key: build-time env first, then user-supplied values saved from Settings. */
 export const clientIds = {
-  get(p: 'google' | 'microsoft'): string {
-    const env = p === 'google' ? import.meta.env.VITE_GOOGLE_CLIENT_ID : import.meta.env.VITE_MS_CLIENT_ID;
-    try { return (env as string) || localStorage.getItem(`scanlio.clientId.${p}`) || ''; } catch { return (env as string) || ''; }
+  get(k: CredKey): string {
+    try { return ENV[k] || localStorage.getItem(`scanlio.clientId.${k}`) || ''; } catch { return ENV[k] || ''; }
   },
-  set(p: 'google' | 'microsoft', v: string) { try { localStorage.setItem(`scanlio.clientId.${p}`, v.trim()); } catch { /* ignore */ } },
+  set(k: CredKey, v: string) { try { localStorage.setItem(`scanlio.clientId.${k}`, v.trim()); } catch { /* ignore */ } },
 };

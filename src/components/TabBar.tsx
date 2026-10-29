@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
 import { haptic } from '../lib/haptics';
-import { GearIcon, LibraryIcon, ScanIcon } from './Icons';
+import { GearIcon, HomeIcon, LibraryIcon, ScanIcon } from './Icons';
 
-export type Tab = 'scan' | 'library' | 'settings';
+export type Tab = 'home' | 'scan' | 'library' | 'settings';
 const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
+  { id: 'home', label: 'Home', icon: <HomeIcon /> },
   { id: 'scan', label: 'Scan', icon: <ScanIcon /> },
   { id: 'library', label: 'Library', icon: <LibraryIcon /> },
   { id: 'settings', label: 'Settings', icon: <GearIcon /> },
@@ -22,7 +23,7 @@ export function TabBar({ tab, onChange, badge }: { tab: Tab; onChange: (t: Tab) 
               role="tab"
               aria-selected={active}
               onClick={() => { haptic('light'); onChange(t.id); }}
-              className={`relative flex min-h-tap min-w-[84px] flex-col items-center justify-center gap-0.5 rounded-full px-3 py-1.5 text-[11px] font-semibold transition-all duration-500 ease-hig active:scale-95 ${
+              className={`relative flex min-h-tap min-w-[72px] flex-col items-center justify-center gap-0.5 rounded-full px-3 py-1.5 text-[11px] font-semibold transition-all duration-500 ease-hig active:scale-95 ${
                 active ? 'bg-accent/15 text-accent' : 'text-secondary'
               }`}
             >

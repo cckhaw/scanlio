@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 interface Props { open: boolean; onClose: () => void; title?: string; children: ReactNode; full?: boolean }
 
@@ -15,7 +16,8 @@ export function BottomSheet({ open, onClose, title, children, full }: Props) {
   }, [open, onClose]);
 
   if (!open) return null;
-  return (
+  // Portaled to <body>: backdrop-filter on a parent sheet would otherwise trap nested `fixed` sheets.
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center" role="dialog" aria-modal="true" aria-label={title}>
       <div className="absolute inset-0 animate-fade-in bg-black/40" onClick={onClose} />
       <div
@@ -33,6 +35,7 @@ export function BottomSheet({ open, onClose, title, children, full }: Props) {
         {title && <h2 className="px-5 pb-2 pt-1 text-center text-[17px] font-semibold">{title}</h2>}
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-safe">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

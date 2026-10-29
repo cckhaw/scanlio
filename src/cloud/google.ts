@@ -1,22 +1,32 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { AuthError, RetryableError, type CloudProvider, type UploadFile } from './types';
+import type { FolderRef } from '../types';
+import { AuthError, RetryableError, type CloudProvider, type FolderEntry, type UploadFile } from './types';
 import { clientIds, tokenStore } from './storage';
 
-const SCOPE = 'https://www.googleapis.com/auth/drive.file';   // app-created files only: least privilege
+const SCOPE = 'https://www.googleapis.com/auth/drive.file';   // only files/folders the app created or the user picked
 const GIS_SRC = 'https://accounts.google.com/gsi/client';
+const DEFAULT_FOLDER = 'Scanlio';
+const FOLDER_MIME = 'application/vnd.google-apps.folder';
 interface Tok { access_token: string; expires_at: number }
 
-let gisP: Promise<void> | null = null;
-const loadGis = () =>
-  (gisP ??= new Promise<void>((res, rej) => {
-    if ((window as any).google?.accounts?.oauth2) return res();
-    const s = Object.assign(document.createElement('script'), { src: GIS_SRC, async: true });
+const loadScript = (src: string, ready: () => boolean) =>
+  new Promise<void>((res, rej) => {
+    if (ready()) return res();
+    const s = Object.assign(document.createElement('script'), { src, async: true });
     s.onload = () => res();
-    s.onerror = () => { gisP = null; rej(new RetryableError('Could not load Google Identity Services')); };
+    s.onerror = () => rej(new RetryableError(`Could not load ${new URL(src).host}`));
     document.head.appendChild(s);
-  }));
+  });
+const loadGis = () => loadScript(GIS_SRC, () => !!(window as any).google?.accounts?.oauth2);
 
-const folderCache = new Map<string, string>();
+const token = () => {
+  const t = tokenStore.get<Tok>('google');
+  if (!t || t.expires_at < Date.now()) throw new AuthError('Google Drive session expired — reconnect.');
+  return t.access_token;
+};
+const auth = () => ({ Authorization: `Bearer ${token()}` });
+
+const nameCache = new Map<string, string>();
 
 export const googleDrive: CloudProvider = {
   id: 'google',
@@ -45,15 +55,58 @@ export const googleDrive: CloudProvider = {
   async disconnect() {
     const t = tokenStore.get<Tok>('google');
     tokenStore.del('google');
-    folderCache.clear();
+    nameCache.clear();
     if (t) { try { await loadGis(); (window as any).google.accounts.oauth2.revoke(t.access_token); } catch { /* best effort */ } }
   },
 
-  async upload(file: UploadFile, folder: string, onProgress) {
-    const t = tokenStore.get<Tok>('google');
-    if (!t || t.expires_at < Date.now()) throw new AuthError('Google Drive session expired — reconnect.');
-    const headers = { Authorization: `Bearer ${t.access_token}` };
-    const folderId = await ensureFolder(folder, headers);
+  /* ----- folder selection ----- */
+  // The Google Picker is the only way (with the narrow drive.file scope) to let users choose a folder they
+  // already have; it needs an API key. Without one the in-app browser shows folders Scanlio itself created.
+  canPickNatively: () => !!clientIds.get('googleKey') && !!clientIds.get('google'),
+
+  async pickFolder(): Promise<FolderRef | null> {
+    const t = token();
+    await loadScript('https://apis.google.com/js/api.js', () => !!(window as any).gapi);
+    await new Promise<void>((r) => (window as any).gapi.load('picker', () => r()));
+    const g = (window as any).google.picker;
+    return new Promise((resolve) => {
+      const view = new g.DocsView(g.ViewId.FOLDERS).setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes(FOLDER_MIME);
+      new g.PickerBuilder()
+        .addView(view)
+        .setOAuthToken(t)
+        .setDeveloperKey(clientIds.get('googleKey'))
+        .setAppId(clientIds.get('google').split('-')[0])
+        .setTitle('Choose a folder for your scans')
+        .setCallback((d: any) => {
+          if (d.action === g.Action.PICKED) resolve({ id: d.docs[0].id, name: d.docs[0].name });
+          else if (d.action === g.Action.CANCEL) resolve(null);
+        })
+        .build()
+        .setVisible(true);
+    });
+  },
+
+  async listFolders(parentId = 'root'): Promise<FolderEntry[]> {
+    const q = encodeURIComponent(`'${parentId}' in parents and mimeType='${FOLDER_MIME}' and trashed=false`);
+    const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)&orderBy=name&pageSize=200`, { headers: auth() });
+    check(r);
+    return (await r.json()).files ?? [];
+  },
+
+  async createFolder(name, parentId) {
+    const r = await fetch('https://www.googleapis.com/drive/v3/files?fields=id,name', {
+      method: 'POST',
+      headers: { ...auth(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, mimeType: FOLDER_MIME, ...(parentId ? { parents: [parentId] } : {}) }),
+    });
+    check(r);
+    return r.json();
+  },
+
+  /* ----- upload ----- */
+  async upload(file: UploadFile, folder, onProgress) {
+    const headers = auth();
+    const folderId = folder?.id ?? (await ensureNamedFolder(folder?.name ?? DEFAULT_FOLDER, headers));
 
     // Resumable upload: init session, then PUT the bytes (progress via XHR).
     const init = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
@@ -68,29 +121,22 @@ export const googleDrive: CloudProvider = {
   },
 };
 
-async function ensureFolder(name: string, headers: Record<string, string>): Promise<string> {
-  const cached = folderCache.get(name);
+async function ensureNamedFolder(name: string, headers: Record<string, string>): Promise<string> {
+  const cached = nameCache.get(name);
   if (cached) return cached;
-  const q = encodeURIComponent(`name='${name.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.folder' and trashed=false`);
+  const q = encodeURIComponent(`name='${name.replace(/'/g, "\\'")}' and mimeType='${FOLDER_MIME}' and trashed=false`);
   const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)&spaces=drive`, { headers });
   check(res);
   let id: string | undefined = (await res.json()).files?.[0]?.id;
-  if (!id) {
-    const c = await fetch('https://www.googleapis.com/drive/v3/files?fields=id', {
-      method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder' }),
-    });
-    check(c);
-    id = (await c.json()).id as string;
-  }
-  folderCache.set(name, id!);
+  if (!id) id = (await googleDrive.createFolder!(name)).id;
+  nameCache.set(name, id!);
   return id!;
 }
 
 function check(r: Response) {
   if (r.ok) return;
   if (r.status === 401 || r.status === 403) throw new AuthError(`Google Drive rejected the request (${r.status})`);
+  if (r.status === 404) throw new AuthError('That Drive folder is no longer accessible — choose a folder again.');
   throw new RetryableError(`Google Drive error ${r.status}`);
 }
 

@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { cloud } from '../cloud/CloudStorageManager';
 import { haptic } from '../lib/haptics';
-import type { ProviderId } from '../types';
+import { exportPrefs } from '../lib/export';
+import type { ExportOptions as Opts, ProviderId } from '../types';
+import { ExportOptions } from './ExportOptions';
+import { FolderField } from './FolderField';
 import { BottomSheet } from './BottomSheet';
 import { CheckIcon, CloudUpIcon, TagIcon } from './Icons';
 
@@ -10,7 +13,7 @@ interface Props {
   pageCount: number;
   saving: boolean;
   onClose: () => void;
-  onSave: (v: { name: string; tags: string[]; destinations: ProviderId[] }) => void;
+  onSave: (v: { name: string; tags: string[]; destinations: ProviderId[]; export: Opts }) => void;
 }
 
 const LABELS: Record<ProviderId, string> = { google: 'Google Drive', onedrive: 'OneDrive', icloud: 'iCloud Drive' };
@@ -27,8 +30,9 @@ export function SaveSheet({ open, pageCount, saving, onClose, onSave }: Props) {
   const [tags, setTags] = useState<string[]>([]);
   const [draft, setDraft] = useState('');
   const [dest, setDest] = useState<ProviderId[]>(readDest);
+  const [opts, setOpts] = useState<Opts>(exportPrefs.get);
 
-  useEffect(() => { if (open) { setName(defaultName()); setTags([]); setDraft(''); setDest(readDest()); } }, [open]);
+  useEffect(() => { if (open) { setName(defaultName()); setTags([]); setDraft(''); setDest(readDest()); setOpts(exportPrefs.get()); } }, [open]);
 
   const addTag = (raw: string) => {
     const t = raw.trim().replace(/^#/, '').toLowerCase();
@@ -40,7 +44,8 @@ export function SaveSheet({ open, pageCount, saving, onClose, onSave }: Props) {
   const submit = () => {
     const finalTags = draft.trim() ? [...new Set([...tags, draft.trim().replace(/^#/, '').toLowerCase()])] : tags;
     try { localStorage.setItem('scanlio.dest', JSON.stringify(dest)); } catch { /* ignore */ }
-    onSave({ name: name.trim() || defaultName(), tags: finalTags, destinations: dest });
+    exportPrefs.set(opts);
+    onSave({ name: name.trim() || defaultName(), tags: finalTags, destinations: dest, export: opts });
   };
 
   return (
@@ -65,20 +70,28 @@ export function SaveSheet({ open, pageCount, saving, onClose, onSave }: Props) {
         </div>
 
         <div>
+          <span className="mb-1.5 block px-1 text-[13px] font-medium text-secondary">Export as</span>
+          <ExportOptions value={opts} onChange={setOpts} pageCount={pageCount} />
+        </div>
+
+        <div>
           <span className="mb-1.5 flex items-center gap-1.5 px-1 text-[13px] font-medium text-secondary"><CloudUpIcon width={14} height={14} /> Upload to</span>
           <div className="overflow-hidden rounded-btn bg-label/[.07]">
             {(Object.keys(LABELS) as ProviderId[]).map((p, i) => {
               const on = dest.includes(p);
               const connected = cloud.providers[p].isConnected();
               return (
-                <button key={p} onClick={() => toggle(p)} role="checkbox" aria-checked={on}
-                  className={`flex min-h-[52px] w-full items-center gap-3 px-4 text-left transition-colors duration-300 active:bg-label/10 ${i ? 'border-t hairline' : ''}`}>
+                <div key={p} className={i ? 'border-t hairline' : ''}>
+                <button onClick={() => toggle(p)} role="checkbox" aria-checked={on}
+                  className="flex min-h-[52px] w-full items-center gap-3 px-4 text-left transition-colors duration-300 active:bg-label/10">
                   <span className={`grid h-6 w-6 place-items-center rounded-full border-2 transition-all duration-300 ease-hig ${on ? 'border-accent bg-accent text-white' : 'border-label/25'}`}>
                     {on && <CheckIcon width={14} height={14} strokeWidth={3} />}
                   </span>
                   <span className="flex-1 text-[16px] font-medium">{LABELS[p]}</span>
                   <span className={`text-[12px] ${connected ? 'text-success' : 'text-tertiary'}`}>{connected ? 'Connected' : on ? 'Queued until connected' : 'Not connected'}</span>
                 </button>
+                {on && <FolderField provider={p} compact />}
+                </div>
               );
             })}
           </div>

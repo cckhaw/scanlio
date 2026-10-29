@@ -3,6 +3,10 @@ import { cloud } from '../cloud/CloudStorageManager';
 import { clientIds } from '../cloud/storage';
 import { queue } from '../lib/db';
 import { haptic } from '../lib/haptics';
+import { exportPrefs } from '../lib/export';
+import type { ExportOptions as Opts } from '../types';
+import { ExportOptions } from './ExportOptions';
+import { FolderField } from './FolderField';
 import { useTheme, type ThemeMode } from '../theme/ThemeContext';
 import type { ProviderId, QueueItem } from '../types';
 import { AutoIcon, CheckIcon, MoonIcon, SunIcon } from './Icons';
@@ -34,7 +38,8 @@ export function Settings() {
   const [busy, setBusy] = useState<ProviderId | null>(null);
   const [gid, setGid] = useState(clientIds.get('google'));
   const [mid, setMid] = useState(clientIds.get('microsoft'));
-  const [folder, setFolder] = useState(cloud.folderName());
+  const [opts, setOpts] = useState<Opts>(exportPrefs.get);
+  const [gkey, setGkey] = useState(clientIds.get('googleKey'));
   const [storage, setStorage] = useState('');
 
   useEffect(() => { void queue.all().then(setItems); }, [cs.flushing, cs.progress]);
@@ -77,7 +82,8 @@ export function Settings() {
           const connected = p.isConnected() && (id !== 'icloud' || nativeIcloud);
           const attention = cs.needsAttention[id];
           return (
-            <div key={id} className="flex min-h-[60px] items-center gap-3 px-4 py-2">
+            <div key={id}>
+            <div className="flex min-h-[60px] items-center gap-3 px-4 py-2">
               <div className="min-w-0 flex-1">
                 <p className="text-[16px] font-semibold">{p.label}</p>
                 <p className={`line-clamp-2 text-[12px] ${attention ? 'text-warning' : connected ? 'text-success' : 'text-secondary'}`}>
@@ -90,12 +96,14 @@ export function Settings() {
                 </button>
               )}
             </div>
+            {(connected || id === 'google' || id === 'onedrive') && <FolderField provider={id} />}
+            </div>
           );
         })}
-        <label className="flex min-h-[52px] items-center gap-3 px-4">
-          <span className="text-[16px]">Folder name</span>
-          <input value={folder} onChange={(e) => setFolder(e.target.value)} onBlur={() => cloud.setFolderName(folder)} className="min-h-tap flex-1 bg-transparent text-right text-[16px] text-secondary outline-none" />
-        </label>
+      </Section>
+
+      <Section title="Default export" footer="Used when saving and uploading. You can change it per document in the save sheet.">
+        <div className="p-3"><ExportOptions value={opts} onChange={(o) => { setOpts(o); exportPrefs.set(o); }} pageCount={2} /></div>
       </Section>
 
       <Section title="Sync queue" footer={cs.online ? undefined : 'Offline — pending uploads will resume automatically when a connection returns.'}>
@@ -110,6 +118,10 @@ export function Settings() {
         <label className="flex min-h-[52px] items-center gap-3 px-4">
           <span className="w-20 shrink-0 text-[15px]">Google</span>
           <input value={gid} onChange={(e) => setGid(e.target.value)} onBlur={() => clientIds.set('google', gid)} placeholder="xxxx.apps.googleusercontent.com" autoCapitalize="none" autoCorrect="off" className="min-h-tap min-w-0 flex-1 bg-transparent text-[14px] outline-none" />
+        </label>
+        <label className="flex min-h-[52px] items-center gap-3 px-4">
+          <span className="w-20 shrink-0 text-[15px]">Google key</span>
+          <input value={gkey} onChange={(e) => setGkey(e.target.value)} onBlur={() => clientIds.set('googleKey', gkey)} placeholder="API key (optional, enables folder picker)" autoCapitalize="none" autoCorrect="off" className="min-h-tap min-w-0 flex-1 bg-transparent text-[14px] outline-none" />
         </label>
         <label className="flex min-h-[52px] items-center gap-3 px-4">
           <span className="w-20 shrink-0 text-[15px]">Microsoft</span>
