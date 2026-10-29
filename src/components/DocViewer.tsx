@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { cloud } from '../cloud/CloudStorageManager';
 import { docs } from '../lib/db';
-import { downloadBlob } from '../lib/image';
 import { buildExportFiles, exportPrefs } from '../lib/export';
+import { saveToDevice, shareFiles } from '../lib/deliver';
 import { enqueueOcr } from '../lib/ocr';
 import { useObjectUrls } from '../lib/useObjectUrl';
 import type { DocRecord, ExportOptions as Opts, ProviderId } from '../types';
@@ -33,17 +33,13 @@ export function DocViewer({ doc, onClose }: { doc: DocRecord | null; onClose: ()
   const files = () => buildExportFiles(doc, opts);
 
   const share = async () => {
-    const list = (await files()).map((f) => new File([f.blob], f.name, { type: f.mime }));
-    if (navigator.canShare?.({ files: list })) {
-      try {
-        await navigator.share({ files: list, title: doc.name });
-        // Sharing to "Save to Files → iCloud Drive" is how iOS delivers iCloud uploads.
-        if (doc.sync.icloud === 'queued') await docs.update(doc.id, (d) => { d.sync.icloud = 'done'; });
-      } catch { /* cancelled */ }
-    } else for (const f of list) downloadBlob(f, f.name);
+    const r = await shareFiles(await files(), doc.name);
+    // Sharing to "Save to Files → iCloud Drive" is how iOS delivers iCloud uploads.
+    if (r === 'shared' && doc.sync.icloud === 'queued') await docs.update(doc.id, (d) => { d.sync.icloud = 'done'; });
+    if (r === 'unsupported') { saveToDevice(await files()); toast('Sharing isn\'t supported here — saved to your device instead', 'info'); }
   };
 
-  const download = async () => { for (const f of await files()) downloadBlob(f.blob, f.name); };
+  const download = async () => saveToDevice(await files());
 
   const rename = async () => { if (name.trim() && name !== doc.name) await docs.update(doc.id, (d) => { d.name = name.trim(); d.pdf = undefined; }); };
 
@@ -80,7 +76,7 @@ export function DocViewer({ doc, onClose }: { doc: DocRecord | null; onClose: ()
       <BottomSheet open={sheet === 'upload'} onClose={() => setSheet(null)} title="Upload to">
         <div className="space-y-3 pb-4">
           <ExportOptions value={opts} onChange={(o) => { setOpts(o); exportPrefs.set(o); }} pageCount={doc.pages.length} />
-          {PROVIDERS.map((p) => (
+          {PROVIDERS.filter((p) => cloud.providers[p.id].configured()).map((p) => (
             <div key={p.id} className="overflow-hidden rounded-btn bg-label/[.07]">
               <button className="flex min-h-[52px] w-full items-center justify-between px-4 text-left text-[16px] font-semibold active:bg-label/10" onClick={async () => { setSheet(null); await cloud.enqueue(doc.id, [p.id], opts); toast(navigator.onLine ? `Uploading to ${p.label}…` : `Queued for ${p.label} — will sync when online`, 'info'); }}>
                 <span>{p.label}</span><span className="text-[12px] font-normal text-secondary">{doc.sync[p.id] === 'done' ? 'Uploaded ✓' : cloud.providers[p.id].isConnected() ? 'Upload' : 'Not connected'}</span>

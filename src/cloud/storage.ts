@@ -14,10 +14,5 @@ const ENV: Record<CredKey, string | undefined> = {
   microsoft: import.meta.env.VITE_MS_CLIENT_ID,
 };
 
-/** OAuth client IDs / API key: build-time env first, then user-supplied values saved from Settings. */
-export const clientIds = {
-  get(k: CredKey): string {
-    try { return ENV[k] || localStorage.getItem(`scanlio.clientId.${k}`) || ''; } catch { return ENV[k] || ''; }
-  },
-  set(k: CredKey, v: string) { try { localStorage.setItem(`scanlio.clientId.${k}`, v.trim()); } catch { /* ignore */ } },
-};
+/** OAuth client IDs / API key come from build-time configuration only (Vercel env vars); users never enter them. */
+export const clientIds = { get: (k: CredKey): string => ENV[k] ?? '' };

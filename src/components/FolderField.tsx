@@ -77,7 +77,7 @@ function FolderBrowser({ provider, onClose }: { provider: ProviderId; onClose: (
           {trail.map((t, i) => <button key={t.id} className="chip" onClick={() => setTrail(trail.slice(0, i + 1))}>{t.name}</button>)}
         </div>
         {provider === 'google' && (
-          <p className="mb-2 px-1 text-[12px] text-secondary">Scanlio can only see folders it created. To pick any existing folder, add a Google API key in Settings → Developer credentials.</p>
+          <p className="mb-2 px-1 text-[12px] text-secondary">Scanlio can only see folders it created. New folders you make here are available for future scans.</p>
         )}
         <div className="flex-1 overflow-hidden rounded-btn bg-label/[.07]">
           {items === null && <p className="p-4 text-[14px] text-secondary">Loading…</p>}

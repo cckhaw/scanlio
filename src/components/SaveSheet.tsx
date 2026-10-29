@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react';
 import { cloud } from '../cloud/CloudStorageManager';
 import { haptic } from '../lib/haptics';
+import { canShareFiles } from '../lib/deliver';
 import { exportPrefs } from '../lib/export';
 import type { ExportOptions as Opts, ProviderId } from '../types';
 import { ExportOptions } from './ExportOptions';
 import { FolderField } from './FolderField';
 import { BottomSheet } from './BottomSheet';
-import { CheckIcon, CloudUpIcon, TagIcon } from './Icons';
+import { CheckIcon, CloudUpIcon, DownloadIcon, ShareIcon, TagIcon } from './Icons';
 
 interface Props {
   open: boolean;
   pageCount: number;
   saving: boolean;
   onClose: () => void;
-  onSave: (v: { name: string; tags: string[]; destinations: ProviderId[]; export: Opts }) => void;
+  onSave: (v: { name: string; tags: string[]; destinations: ProviderId[]; export: Opts; deliver?: 'device' | 'share' }) => void;
 }
 
 const LABELS: Record<ProviderId, string> = { google: 'Google Drive', onedrive: 'OneDrive', icloud: 'iCloud Drive' };
@@ -41,11 +42,11 @@ export function SaveSheet({ open, pageCount, saving, onClose, onSave }: Props) {
   };
   const toggle = (p: ProviderId) => { haptic('light'); setDest((d) => (d.includes(p) ? d.filter((x) => x !== p) : [...d, p])); };
 
-  const submit = () => {
+  const submit = (deliver?: 'device' | 'share') => {
     const finalTags = draft.trim() ? [...new Set([...tags, draft.trim().replace(/^#/, '').toLowerCase()])] : tags;
     try { localStorage.setItem('scanlio.dest', JSON.stringify(dest)); } catch { /* ignore */ }
     exportPrefs.set(opts);
-    onSave({ name: name.trim() || defaultName(), tags: finalTags, destinations: dest, export: opts });
+    onSave({ name: name.trim() || defaultName(), tags: finalTags, destinations: deliver ? [] : dest, export: opts, deliver });
   };
 
   return (
@@ -77,7 +78,7 @@ export function SaveSheet({ open, pageCount, saving, onClose, onSave }: Props) {
         <div>
           <span className="mb-1.5 flex items-center gap-1.5 px-1 text-[13px] font-medium text-secondary"><CloudUpIcon width={14} height={14} /> Upload to</span>
           <div className="overflow-hidden rounded-btn bg-label/[.07]">
-            {(Object.keys(LABELS) as ProviderId[]).map((p, i) => {
+            {(Object.keys(LABELS) as ProviderId[]).filter((p) => cloud.providers[p].configured()).map((p, i) => {
               const on = dest.includes(p);
               const connected = cloud.providers[p].isConnected();
               return (
@@ -98,9 +99,16 @@ export function SaveSheet({ open, pageCount, saving, onClose, onSave }: Props) {
           {!navigator.onLine && dest.length > 0 && <p className="mt-2 px-1 text-[12px] text-secondary">You're offline — scans are saved on this device and upload automatically when you're back online.</p>}
         </div>
 
-        <button className="btn-primary w-full !min-h-[52px] text-[17px]" disabled={saving} onClick={submit}>
+        <button className="btn-primary w-full !min-h-[52px] text-[17px]" disabled={saving} onClick={() => submit()}>
           {saving ? 'Saving…' : dest.length ? 'Save & Upload' : 'Save to Library'}
         </button>
+        <div className="grid grid-cols-2 gap-2">
+          <button className="btn-glass !min-h-[48px]" disabled={saving} onClick={() => submit('device')}><DownloadIcon width={20} height={20} /> Save to device</button>
+          {canShareFiles()
+            ? <button className="btn-glass !min-h-[48px]" disabled={saving} onClick={() => submit('share')}><ShareIcon width={20} height={20} /> Share…</button>
+            : <span />}
+        </div>
+        {canShareFiles() && <p className="-mt-2 px-1 text-center text-[12px] text-secondary">Share sends the files to any app — Messages, Mail, or a cloud-storage app like Drive, Dropbox or OneDrive.</p>}
       </div>
     </BottomSheet>
   );
