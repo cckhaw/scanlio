@@ -1,0 +1,11 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>Signing in…</title>
+<body style="font:16px -apple-system,system-ui,sans-serif;display:grid;place-items:center;height:100vh;margin:0">
+<p>Signing in… you can close this window.</p>
+<script>
+  // Relays the OAuth (PKCE) redirect back to the opener, same-origin only.
+  const params = Object.fromEntries(new URLSearchParams(location.search));
+  if (window.opener) window.opener.postMessage({ type: 'scanlio-oauth', params }, location.origin);
+  window.close();
+</script>

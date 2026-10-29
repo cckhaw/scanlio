@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------- HIG colour tokens (space-separated RGB for Tailwind alpha) ---------- */
+:root {
+  --base: 245 245 247;        /* #F5F5F7 */
+  --surface: 255 255 255;     /* used at /80 => rgba(255,255,255,.8) */
+  --elevated: 255 255 255;
+  --label: 29 29 31;          /* #1D1D1F */
+  --secondary: 99 99 102;
+  --tertiary: 142 142 147;
+  --separator: 0 0 0;
+  --accent: 0 122 255;        /* #007AFF */
+  --success: 48 209 88;       /* #30D158 */
+  --danger: 255 59 48;
+  --warning: 255 159 10;
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-fill: rgba(255, 255, 255, 0.8);
+  color-scheme: light;
+}
+.dark {
+  --base: 0 0 0;              /* #000000 */
+  --surface: 44 44 46;        /* rgba(44,44,46,.75) */
+  --elevated: 58 58 60;
+  --label: 245 245 247;       /* #F5F5F7 */
+  --secondary: 174 174 178;
+  --tertiary: 142 142 147;
+  --separator: 255 255 255;
+  --accent: 10 132 255;       /* #0A84FF */
+  --success: 50 215 75;       /* #32D74B */
+  --danger: 255 69 58;
+  --warning: 255 159 10;
+  --glass-border: rgba(255, 255, 255, 0.18);
+  --glass-fill: rgba(44, 44, 46, 0.75);
+  color-scheme: dark;
+}
+
+/* Smooth Light/Dark switching: ThemeContext adds .theme-transition for ~350ms. */
+.theme-transition, .theme-transition *, .theme-transition *::before, .theme-transition *::after {
+  transition: background-color .35s cubic-bezier(0.16, 1, 0.3, 1), color .35s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color .35s cubic-bezier(0.16, 1, 0.3, 1), fill .35s, stroke .35s !important;
+}
+
+html, body, #root { height: 100%; }
+body {
+  @apply bg-base text-label font-sans antialiased;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+input, textarea { user-select: text; }
+
+@layer components {
+  /* Frosted glass surface */
+  .glass {
+    background: var(--glass-fill);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid var(--glass-border);
+  }
+  .card { @apply glass rounded-card shadow-glass; }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-btn min-h-tap min-w-tap px-4 font-semibold
+      transition-transform duration-300 ease-hig active:scale-[.96] select-none disabled:opacity-40 disabled:pointer-events-none;
+  }
+  .btn-primary { @apply btn bg-accent text-white; }
+  .btn-tinted { @apply btn bg-accent/15 text-accent; }
+  .btn-glass { @apply btn glass text-label; }
+  .btn-danger { @apply btn bg-danger/15 text-danger; }
+  .chip {
+    @apply inline-flex items-center rounded-full min-h-[32px] px-3 text-[13px] font-medium
+      bg-label/[.07] text-secondary transition-colors duration-300 ease-hig;
+  }
+  .chip[aria-pressed='true'] { @apply bg-accent text-white; }
+  .hairline { border-color: var(--glass-border); }
+  .pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 12px); }
+  .pt-safe { padding-top: max(env(safe-area-inset-top), 12px); }
+  .no-scrollbar { scrollbar-width: none; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
