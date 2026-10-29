@@ -1,5 +1,5 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
-import type { DocRecord, ProviderId, QueueItem } from '../types';
+import type { DocRecord, ExportOptions, FolderRef, ProviderId, QueueItem } from '../types';
 
 interface ScanlioDB extends DBSchema {
   docs: { key: string; value: DocRecord; indexes: { 'by-date': number } };
@@ -48,11 +48,14 @@ export const docs = {
 
 export const queue = {
   async all() { return (await db()).getAll('queue'); },
-  async add(docId: string, provider: ProviderId) {
+  /** Adds (or re-targets) the upload job for a document + provider. */
+  async add(docId: string, provider: ProviderId, opts: ExportOptions, folder?: FolderRef) {
     const d = await db();
     const dup = (await d.getAllFromIndex('queue', 'by-doc', docId)).find((q) => q.provider === provider);
-    if (dup) return dup;
-    const item: QueueItem = { id: uid(), docId, provider, attempts: 0, createdAt: Date.now() };
+    const item: QueueItem = {
+      id: dup?.id ?? uid(), docId, provider, attempts: 0, createdAt: dup?.createdAt ?? Date.now(),
+      folder, format: opts.format, pdfMode: opts.pdfMode, doneFiles: [],
+    };
     await d.put('queue', item);
     emit();
     return item;

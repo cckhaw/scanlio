@@ -2,12 +2,14 @@ import { useEffect, useState } from 'react';
 import { cloud } from '../cloud/CloudStorageManager';
 import { docs } from '../lib/db';
 import { downloadBlob } from '../lib/image';
+import { buildExportFiles, exportPrefs } from '../lib/export';
 import { enqueueOcr } from '../lib/ocr';
-import { buildPdf } from '../lib/pdf';
 import { useObjectUrls } from '../lib/useObjectUrl';
-import type { DocRecord, ProviderId } from '../types';
+import type { DocRecord, ExportOptions as Opts, ProviderId } from '../types';
+import { ExportOptions } from './ExportOptions';
+import { FolderField } from './FolderField';
 import { BottomSheet } from './BottomSheet';
-import { CloseIcon, CloudUpIcon, DownloadIcon, ShareIcon, TagIcon, TextIcon, TrashIcon } from './Icons';
+import { CloseIcon, CloudUpIcon, FileIcon, DownloadIcon, ShareIcon, TagIcon, TextIcon, TrashIcon } from './Icons';
 import { useToast } from './Toast';
 
 const PROVIDERS: { id: ProviderId; label: string }[] = [
@@ -18,34 +20,30 @@ const PROVIDERS: { id: ProviderId; label: string }[] = [
 export function DocViewer({ doc, onClose }: { doc: DocRecord | null; onClose: () => void }) {
   const toast = useToast();
   const urls = useObjectUrls(doc?.pages ?? []);
-  const [sheet, setSheet] = useState<null | 'upload' | 'text' | 'tags'>(null);
+  const [sheet, setSheet] = useState<null | 'upload' | 'text' | 'tags' | 'format'>(null);
   const [name, setName] = useState('');
   const [tagText, setTagText] = useState('');
   const [current, setCurrent] = useState(0);
+  const [opts, setOpts] = useState<Opts>(exportPrefs.get);
 
   useEffect(() => { if (doc) { setName(doc.name); setTagText(doc.tags.join(', ')); setCurrent(0); } else setSheet(null); }, [doc?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!doc) return null;
 
-  const getPdf = async () => {
-    if (doc.pdf) return doc.pdf;
-    const pdf = await buildPdf(doc.pages, doc.name);
-    await docs.update(doc.id, (d) => { d.pdf = pdf; });
-    return pdf;
-  };
-  const fileName = `${doc.name.replace(/[\\/:*?"<>|]+/g, '-')}.pdf`;
+  const files = () => buildExportFiles(doc, opts);
 
   const share = async () => {
-    const pdf = await getPdf();
-    const file = new File([pdf], fileName, { type: 'application/pdf' });
-    if (navigator.canShare?.({ files: [file] })) {
+    const list = (await files()).map((f) => new File([f.blob], f.name, { type: f.mime }));
+    if (navigator.canShare?.({ files: list })) {
       try {
-        await navigator.share({ files: [file], title: doc.name });
+        await navigator.share({ files: list, title: doc.name });
         // Sharing to "Save to Files → iCloud Drive" is how iOS delivers iCloud uploads.
         if (doc.sync.icloud === 'queued') await docs.update(doc.id, (d) => { d.sync.icloud = 'done'; });
       } catch { /* cancelled */ }
-    } else downloadBlob(pdf, fileName);
+    } else for (const f of list) downloadBlob(f, f.name);
   };
+
+  const download = async () => { for (const f of await files()) downloadBlob(f.blob, f.name); };
 
   const rename = async () => { if (name.trim() && name !== doc.name) await docs.update(doc.id, (d) => { d.name = name.trim(); d.pdf = undefined; }); };
 
@@ -67,19 +65,28 @@ export function DocViewer({ doc, onClose }: { doc: DocRecord | null; onClose: ()
 
       <nav className="glass pb-safe flex justify-around rounded-t-card px-2 pt-2">
         <Action icon={<ShareIcon />} label="Share" onClick={() => void share()} />
-        <Action icon={<DownloadIcon />} label="PDF" onClick={async () => downloadBlob(await getPdf(), fileName)} />
+        <Action icon={<DownloadIcon />} label="Save" onClick={() => void download()} />
         <Action icon={<CloudUpIcon />} label="Upload" onClick={() => setSheet('upload')} />
         <Action icon={<TextIcon />} label="Text" onClick={() => setSheet('text')} />
         <Action icon={<TagIcon />} label="Tags" onClick={() => setSheet('tags')} />
+        <Action icon={<FileIcon />} label="Format" onClick={() => setSheet('format')} />
         <Action icon={<TrashIcon />} label="Delete" danger onClick={async () => { if (confirm(`Delete “${doc.name}”?`)) { await docs.remove(doc.id); onClose(); toast('Deleted', 'info'); } }} />
       </nav>
 
+      <BottomSheet open={sheet === 'format'} onClose={() => setSheet(null)} title="Save & upload format">
+        <div className="pb-4"><ExportOptions value={opts} onChange={(o) => { setOpts(o); exportPrefs.set(o); }} pageCount={doc.pages.length} /></div>
+      </BottomSheet>
+
       <BottomSheet open={sheet === 'upload'} onClose={() => setSheet(null)} title="Upload to">
-        <div className="space-y-2 pb-4">
+        <div className="space-y-3 pb-4">
+          <ExportOptions value={opts} onChange={(o) => { setOpts(o); exportPrefs.set(o); }} pageCount={doc.pages.length} />
           {PROVIDERS.map((p) => (
-            <button key={p.id} className="btn-glass w-full justify-between" onClick={async () => { setSheet(null); await cloud.enqueue(doc.id, [p.id]); toast(navigator.onLine ? `Uploading to ${p.label}…` : `Queued for ${p.label} — will sync when online`, 'info'); }}>
-              <span>{p.label}</span><span className="text-[12px] font-normal text-secondary">{doc.sync[p.id] === 'done' ? 'Uploaded ✓' : cloud.providers[p.id].isConnected() ? '' : 'Not connected'}</span>
-            </button>
+            <div key={p.id} className="overflow-hidden rounded-btn bg-label/[.07]">
+              <button className="flex min-h-[52px] w-full items-center justify-between px-4 text-left text-[16px] font-semibold active:bg-label/10" onClick={async () => { setSheet(null); await cloud.enqueue(doc.id, [p.id], opts); toast(navigator.onLine ? `Uploading to ${p.label}…` : `Queued for ${p.label} — will sync when online`, 'info'); }}>
+                <span>{p.label}</span><span className="text-[12px] font-normal text-secondary">{doc.sync[p.id] === 'done' ? 'Uploaded ✓' : cloud.providers[p.id].isConnected() ? 'Upload' : 'Not connected'}</span>
+              </button>
+              <div className="border-t hairline"><FolderField provider={p.id} /></div>
+            </div>
           ))}
         </div>
       </BottomSheet>

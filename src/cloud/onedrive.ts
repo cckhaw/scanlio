@@ -1,9 +1,13 @@
-import { AuthError, RetryableError, type CloudProvider, type UploadFile } from './types';
+import { AuthError, RetryableError, type CloudProvider, type FolderEntry, type UploadFile } from './types';
 import { clientIds, tokenStore } from './storage';
 
 // Authorization-code flow + PKCE (the supported flow for SPAs; implicit grant is deprecated).
 const AUTH = 'https://login.microsoftonline.com/common/oauth2/v2.0';
-const SCOPE = 'Files.ReadWrite.AppFolder offline_access';   // writes only to /Apps/<app name>
+// Files.ReadWrite is required so users can pick any of their own folders. Scanlio only lists folder names while
+// browsing and writes the files you export; it never reads existing file contents.
+const SCOPE = 'Files.ReadWrite offline_access';
+const DEFAULT_FOLDER = 'Scanlio';
+const GRAPH = 'https://graph.microsoft.com/v1.0/me/drive';
 const REDIRECT = () => `${location.origin}/oauth-callback.html`;
 const CHUNK = 320 * 1024 * 10;   // must be a multiple of 320 KiB
 
@@ -72,15 +76,47 @@ export const oneDrive: CloudProvider = {
 
   async disconnect() { tokenStore.del('ms'); },
 
-  async upload(file: UploadFile, folder: string, onProgress) {
+  canPickNatively: () => false,
+
+  async listFolders(parentId): Promise<FolderEntry[]> {
     const token = await accessToken();
-    const path = `${encodeURIComponent(folder)}/${encodeURIComponent(file.name)}`;
-    const sess = await fetch(`https://graph.microsoft.com/v1.0/me/drive/special/approot:/${path}:/createUploadSession`, {
+    const base = parentId ? `${GRAPH}/items/${parentId}` : `${GRAPH}/root`;
+    const out: FolderEntry[] = [];
+    let url: string | undefined = `${base}/children?$select=id,name,folder&$top=200`;
+    while (url) {
+      const r: Response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (r.status === 401) throw new AuthError('OneDrive rejected the token');
+      if (!r.ok) throw new RetryableError(`OneDrive error ${r.status}`);
+      const j = await r.json();
+      out.push(...(j.value as { id: string; name: string; folder?: unknown }[]).filter((i) => i.folder).map((i) => ({ id: i.id, name: i.name })));
+      url = j['@odata.nextLink'];
+    }
+    return out.sort((a, b) => a.name.localeCompare(b.name));
+  },
+
+  async createFolder(name, parentId): Promise<FolderEntry> {
+    const token = await accessToken();
+    const r = await fetch(`${parentId ? `${GRAPH}/items/${parentId}` : `${GRAPH}/root`}/children`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, folder: {}, '@microsoft.graph.conflictBehavior': 'rename' }),
+    });
+    if (!r.ok) throw new RetryableError(`Could not create folder (${r.status})`);
+    const j = await r.json();
+    return { id: j.id, name: j.name };
+  },
+
+  async upload(file: UploadFile, folder, onProgress) {
+    const token = await accessToken();
+    const name = encodeURIComponent(file.name);
+    const target = folder?.id && folder.id !== 'root' ? `${GRAPH}/items/${folder.id}:/${name}:` : folder?.id === 'root' ? `${GRAPH}/root:/${name}:` : `${GRAPH}/root:/${encodeURIComponent(folder?.name ?? DEFAULT_FOLDER)}/${name}:`;
+    const sess = await fetch(`${target}/createUploadSession`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ item: { '@microsoft.graph.conflictBehavior': 'rename' } }),
     });
     if (sess.status === 401) throw new AuthError('OneDrive rejected the token');
+    if (sess.status === 404) throw new AuthError('That OneDrive folder no longer exists — choose a folder again.');
     if (!sess.ok) throw new RetryableError(`OneDrive error ${sess.status}`);
     const { uploadUrl } = await sess.json();
 

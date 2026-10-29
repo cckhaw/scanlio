@@ -4,6 +4,13 @@ export type Quad = [Point, Point, Point, Point];
 
 export type FilterId = 'original' | 'color' | 'bw' | 'gray' | 'contrast';
 export type ProviderId = 'google' | 'onedrive' | 'icloud';
+export type ExportFormat = 'pdf' | 'png' | 'jpg';
+/** Multi-page + PDF: one combined file, or one PDF per page. */
+export type PdfMode = 'combined' | 'separate';
+export interface ExportOptions { format: ExportFormat; pdfMode: PdfMode }
+/** Destination folder in a cloud provider. No id => the default "Scanlio" folder (created on demand). */
+export interface FolderRef { id?: string; name: string }
+
 export type AspectLock = 'auto' | 'a4' | 'letter' | 'square';
 
 /** A page in the in-progress scan session (lives in memory until saved). */
@@ -41,6 +48,11 @@ export interface QueueItem {
   docId: string;
   provider: ProviderId;
   attempts: number;
+  folder?: FolderRef;
+  format: ExportFormat;
+  pdfMode: PdfMode;
+  /** file names already uploaded, so a retry doesn't duplicate them */
+  doneFiles: string[];
   error?: string;
   createdAt: number;
 }

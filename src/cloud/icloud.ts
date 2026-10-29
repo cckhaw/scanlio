@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import type { FolderRef } from '../types';
 import { AuthError, type CloudProvider, type UploadFile } from './types';
 import { kv } from '../lib/db';
 import { downloadBlob } from '../lib/image';
@@ -39,7 +40,14 @@ export const iCloudDrive: CloudProvider = {
 
   async disconnect() { handle = null; await kv.del(HANDLE_KEY); },
 
-  async upload(file: UploadFile, folder: string, onProgress) {
+  // The directory the user picks IS the destination folder.
+  canPickNatively: () => hasFsAccess(),
+  async pickFolder(): Promise<FolderRef | null> {
+    try { await iCloudDrive.connect(); } catch (e) { if (e instanceof AuthError) return null; throw e; }
+    return { name: handle?.name ?? 'iCloud Drive' };
+  },
+
+  async upload(file: UploadFile, _folder, onProgress) {
     if (!handle && hasFsAccess()) {
       const saved = await kv.get<any>(HANDLE_KEY);
       if (saved && (await hasPermission(saved))) handle = saved;
@@ -47,8 +55,7 @@ export const iCloudDrive: CloudProvider = {
     }
     if (handle) {
       if (!(await hasPermission(handle))) throw new AuthError('Re-grant access to your iCloud Drive folder in Settings.');
-      const dir = await handle.getDirectoryHandle(folder, { create: true });
-      const f = await dir.getFileHandle(file.name, { create: true });
+      const f = await handle.getFileHandle(file.name, { create: true });
       const w = await f.createWritable();
       await w.write(file.blob);
       await w.close();
@@ -69,6 +76,8 @@ export const iCloudDrive: CloudProvider = {
     onProgress?.(1);
   },
 };
+
+export const iCloudFolderName = () => handle?.name as string | undefined;
 
 /** Restore a previously granted folder handle on startup (permission may need re-prompting later). */
 export async function restoreICloudHandle() {

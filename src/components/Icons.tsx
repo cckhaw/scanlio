@@ -34,3 +34,5 @@ export const AutoIcon = (p: P) => <I {...p}><circle cx="12" cy="12" r="8.5" /><p
 export const WifiOffIcon = (p: P) => <I {...p}><path d="M2 8.8a15 15 0 0 1 4-2.2M10 5.2A15 15 0 0 1 22 8.8M5 12.9a10 10 0 0 1 3-1.8M14 11a10 10 0 0 1 5 1.9M8.5 16.4a5 5 0 0 1 7 0M12 20h.01M3 3l18 18" /></I>;
 export const TagIcon = (p: P) => <I {...p}><path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z" /><circle cx="8" cy="8" r="1.3" /></I>;
 export const DownloadIcon = (p: P) => <I {...p} d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14" />;
+export const FileIcon = (p: P) => <I {...p}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5" /></I>;
+export const HomeIcon = (p: P) => <I {...p}><path d="m3 11 9-8 9 8M5 10v10h5v-6h4v6h5V10" /></I>;

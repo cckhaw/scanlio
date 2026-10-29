@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { cloud } from './cloud/CloudStorageManager';
 import { CameraScanner } from './components/CameraScanner';
+import { Home } from './components/Home';
 import { Editor } from './components/Editor';
 import { WifiOffIcon } from './components/Icons';
 import { Library, PROVIDER_SHORT } from './components/Library';
@@ -13,11 +14,11 @@ import { thumbnail } from './lib/image';
 import { enqueueOcr, retryPendingOcr } from './lib/ocr';
 import { buildPdf } from './lib/pdf';
 import { useScan } from './state/ScanSession';
-import type { DocRecord, ProviderId } from './types';
+import type { DocRecord, ExportOptions, ProviderId } from './types';
 
 const initialTab = (): Tab => {
   const t = new URLSearchParams(location.search).get('tab');
-  return t === 'library' || t === 'settings' ? t : 'scan';
+  return t === 'scan' || t === 'library' || t === 'settings' ? t : 'home';   // never open straight into the camera
 };
 
 export default function App() {
@@ -26,7 +27,7 @@ export default function App() {
   const [saveOpen, setSaveOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pending, setPending] = useState(0);
-  const { pages, renderFinal, clear } = useScan();
+  const { pages, renderFinal, clear, addPage } = useScan();
   const toast = useToast();
   const cs = useCloudState();
 
@@ -44,7 +45,7 @@ export default function App() {
 
   useEffect(() => { void queue.all().then((q) => setPending(q.length)); }, [cs.flushing, cs.progress]);
 
-  const save = async (v: { name: string; tags: string[]; destinations: ProviderId[] }) => {
+  const save = async (v: { name: string; tags: string[]; destinations: ProviderId[]; export: ExportOptions }) => {
     setSaving(true);
     try {
       const blobs: Blob[] = [];
@@ -56,7 +57,7 @@ export default function App() {
       };
       await docs.put(doc);                       // offline-first: durable in IndexedDB before anything else
       enqueueOcr(doc.id);                        // searchable text, in the background
-      if (v.destinations.length) await cloud.enqueue(doc.id, v.destinations);
+      if (v.destinations.length) await cloud.enqueue(doc.id, v.destinations, v.export);
       clear();
       setSaveOpen(false);
       setStep('camera');
@@ -82,6 +83,12 @@ export default function App() {
       ) : (
         <CameraScanner onDone={() => pages.length && setStep('edit')} />
       ))}
+      {tab === 'home' && (
+        <div className="h-full overflow-y-auto">
+          <Home onScan={() => setTab('scan')} onLibrary={() => setTab('library')} onSettings={() => setTab('settings')}
+            onImport={async (files) => { for (const f of Array.from(files)) await addPage(f); setStep('edit'); setTab('scan'); }} />
+        </div>
+      )}
       {tab === 'library' && <div className="h-full overflow-y-auto"><Library /></div>}
       {tab === 'settings' && <div className="h-full overflow-y-auto"><Settings /></div>}
 

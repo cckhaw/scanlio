@@ -21,9 +21,19 @@ Camera access requires a secure context (`localhost` or HTTPS). To test on a pho
 
 | Provider | What to create | Notes |
 |---|---|---|
-| Google Drive | Google Cloud → OAuth client (Web). Authorised JS origin = your app origin. Enable the Drive API. | GIS token client, scope `drive.file` (only files the app creates). Files go to a `Scanlio` folder. |
-| OneDrive | Azure → App registration, platform **SPA**, redirect URI `<origin>/oauth-callback.html`. Permissions: `Files.ReadWrite.AppFolder`, `offline_access`. | Auth-code + PKCE; chunked upload sessions to `/Apps/<app>/Scanlio`. |
+| Google Drive | Google Cloud → OAuth client (Web). Authorised JS origin = your app origin. Enable the Drive API. Optional: enable the **Picker API** and create an API key (`VITE_GOOGLE_API_KEY`) so users can choose any existing folder. | GIS token client, scope `drive.file`. Without the API key, the in-app folder browser only shows folders Scanlio created; default folder is `Scanlio`. |
+| OneDrive | Azure → App registration, platform **SPA**, redirect URI `<origin>/oauth-callback.html`. Permissions: `Files.ReadWrite`, `offline_access`. | Auth-code + PKCE; in-app folder browser; chunked upload sessions. Default folder `Scanlio`. |
 | iCloud Drive | Nothing to register (Apple has no web upload API). | Chromium: pick your iCloud Drive folder once (File System Access API). iOS/Safari: native share sheet → *Save to Files › iCloud Drive*; needs a tap, so it is completed from the document's **Share** button. |
+
+## Routes
+
+- `/` — static marketing/landing page (`index.html`, no JS, no login) — used for OAuth brand verification
+- `/app` — the scanner PWA (`app.html`); opens on the Home tab, the camera starts only when you tap Scan
+- `/privacy`, `/terms` — legal pages (`public/*.html`)
+
+## Export & folders
+
+Per save (and in Settings → Default export): **PDF / PNG / JPG**; for multi-page PDFs choose **one PDF** or **separate PDFs**; images are one file per page. Each cloud provider has its own destination folder (Google Picker / in-app browser, OneDrive browser, iCloud directory picker).
 
 ## Directory layout
 

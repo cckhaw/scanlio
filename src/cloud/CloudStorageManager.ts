@@ -1,6 +1,6 @@
 import { docs, queue } from '../lib/db';
-import { buildPdf } from '../lib/pdf';
-import type { ProviderId, QueueItem } from '../types';
+import { buildExportFiles } from '../lib/export';
+import type { ExportOptions, FolderRef, ProviderId, QueueItem } from '../types';
 import { googleDrive } from './google';
 import { iCloudDrive, restoreICloudHandle } from './icloud';
 import { oneDrive } from './onedrive';
@@ -54,8 +54,29 @@ class CloudStorageManager {
   private patch(p: Partial<ManagerState>) { this.state = { ...this.state, ...p }; this.emit(); }
   private emit() { this.subs.forEach((f) => f(this.state)); }
 
-  folderName() { try { return localStorage.getItem('scanlio.folder') || 'Scanlio'; } catch { return 'Scanlio'; } }
-  setFolderName(n: string) { try { localStorage.setItem('scanlio.folder', n.trim() || 'Scanlio'); } catch { /* ignore */ } }
+  /** Chosen destination per provider (undefined => default "Scanlio" folder). */
+  getFolder(p: ProviderId): FolderRef | undefined {
+    try { return JSON.parse(localStorage.getItem(`scanlio.folder.${p}`) || 'null') ?? undefined; } catch { return undefined; }
+  }
+  setFolder(p: ProviderId, f: FolderRef | undefined) {
+    try { f ? localStorage.setItem(`scanlio.folder.${p}`, JSON.stringify(f)) : localStorage.removeItem(`scanlio.folder.${p}`); } catch { /* ignore */ }
+    this.patch({});   // new state object so subscribers re-render
+  }
+  folderLabel(p: ProviderId) {
+    if (p === 'icloud') return this.getFolder('icloud')?.name ?? (this.providers.icloud.canPickNatively() ? 'Not chosen' : 'Chosen in Files');
+    return this.getFolder(p)?.name ?? 'Scanlio (default)';
+  }
+
+  /** Native picker flow (Google Picker / OS directory picker). Signs in first if needed. Returns true if a folder was set. */
+  async pickFolderNative(p: ProviderId): Promise<boolean> {
+    const prov = this.providers[p];
+    if (!prov.isConnected()) await prov.connect();
+    const f = await prov.pickFolder?.();
+    if (!f) return false;
+    this.setFolder(p, f);
+    void this.flush();
+    return true;
+  }
 
   /* ---------- auth ---------- */
   async connect(id: ProviderId) {
@@ -68,9 +89,9 @@ class CloudStorageManager {
   connectedProviders() { return (Object.keys(this.providers) as ProviderId[]).filter((p) => this.providers[p].isConnected()); }
 
   /* ---------- queue ---------- */
-  async enqueue(docId: string, targets: ProviderId[]) {
+  async enqueue(docId: string, targets: ProviderId[], opts: ExportOptions) {
     for (const p of targets) {
-      await queue.add(docId, p);
+      await queue.add(docId, p, opts, this.getFolder(p));
       await docs.update(docId, (d) => { d.sync[p] = 'queued'; });
     }
     void this.requestBackgroundSync();
@@ -114,12 +135,14 @@ class CloudStorageManager {
     if (!doc) { await queue.remove(item.id); return 'gone'; }
     await docs.update(doc.id, (d) => { d.sync[item.provider] = 'uploading'; });
     try {
-      const pdf = doc.pdf ?? (await buildPdf(doc.pages, doc.name));
-      await provider.upload(
-        { name: `${safeName(doc.name)}.pdf`, blob: pdf, mime: 'application/pdf' },
-        this.folderName(),
-        (f) => this.patch({ progress: { ...this.state.progress, [item.id]: f } })
-      );
+      const files = await buildExportFiles(doc, { format: item.format ?? 'pdf', pdfMode: item.pdfMode ?? 'combined' });
+      item.doneFiles ??= [];
+      for (const [i, file] of files.entries()) {
+        if (item.doneFiles.includes(file.name)) continue;
+        await provider.upload(file, item.folder, (f) => this.patch({ progress: { ...this.state.progress, [item.id]: (i + f) / files.length } }));
+        item.doneFiles.push(file.name);
+        await queue.put(item);              // checkpoint: a retry skips files that already went up
+      }
       await queue.remove(item.id);
       await docs.update(doc.id, (d) => { d.sync[item.provider] = 'done'; });
       this.events.forEach((f) => f({ kind: 'uploaded', docName: doc.name, provider: item.provider }));
@@ -153,7 +176,5 @@ class CloudStorageManager {
     void this.flush();
   }
 }
-
-const safeName = (n: string) => n.replace(/[\\/:*?"<>|]+/g, '-').trim() || 'Scan';
 
 export const cloud = new CloudStorageManager();

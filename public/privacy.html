@@ -35,7 +35,7 @@ footer{text-align:center;color:var(--mut);font-size:13px;margin-top:24px}
 <h2>1. What stays on your device</h2>
 <ul>
 <li><strong>Scans and documents</strong> — page images, generated PDFs, thumbnails, names, tags and the text recognised from them (OCR) are stored in your browser's IndexedDB. We never receive them.</li>
-<li><strong>Preferences</strong> — theme, view mode, folder name, last-used upload destinations and any OAuth client IDs you enter are kept in the browser's local storage.</li>
+<li><strong>Preferences</strong> — theme, view mode, export format, chosen upload folders, last-used upload destinations and any OAuth client IDs you enter are kept in the browser's local storage.</li>
 <li><strong>Sign-in tokens</strong> — access tokens for Google Drive and OneDrive are kept in session storage and disappear when the browser session ends.</li>
 <li><strong>iCloud Drive folder</strong> — if you pick a folder, the browser keeps a handle to it so the app can write files there.</li>
 </ul>
@@ -45,14 +45,19 @@ footer{text-align:center;color:var(--mut);font-size:13px;margin-top:24px}
 <p>The app asks for camera permission to scan pages. Video frames are analysed on your device to find page edges. They are not recorded or transmitted. You can revoke permission in your browser settings or import photos instead.</p>
 
 <h2>3. Cloud uploads you initiate</h2>
-<p>If you connect Google Drive or OneDrive and choose to upload a document, the app sends that PDF directly from your browser to the provider using your account. The app requests the narrowest access available: Google's <code>drive.file</code> scope (files the app creates) and Microsoft's <code>Files.ReadWrite.AppFolder</code> scope (the app's own folder). We do not receive your tokens or files. What the providers do with the data is governed by their own policies (<a href="https://policies.google.com/privacy">Google</a>, <a href="https://privacy.microsoft.com/privacystatement">Microsoft</a>). Saving to iCloud Drive uses your device's file picker or share sheet; the data goes to Apple only through those system features.</p>
+<p>If you connect Google Drive or OneDrive and choose to upload a document, the app sends the file(s) directly from your browser to the provider using your account. You choose the file format (PDF, PNG or JPG) and the destination folder. We do not receive your tokens or files. What the providers do with the data is governed by their own policies (<a href="https://policies.google.com/privacy">Google</a>, <a href="https://privacy.microsoft.com/privacystatement">Microsoft</a>). Saving to iCloud Drive uses your device's folder picker or share sheet; data goes to Apple only through those system features.</p>
+<ul>
+<li><strong>Google Drive</strong> — the app requests only the <code>https://www.googleapis.com/auth/drive.file</code> scope. It lets Scanlio create files and folders and write into folders you select (via the Google Picker or a folder Scanlio created). Scanlio cannot see your other Drive files. Google data is used only to save the files you export and to show the folder you chose; it is never stored on our servers, sold, used for advertising, or used to train AI models.</li>
+<li><strong>OneDrive</strong> — the app requests <code>Files.ReadWrite</code> and <code>offline_access</code> so you can choose any of your folders and so uploads can resume. While you browse, the app reads folder <em>names</em> only; it does not read the contents of your existing files.</li>
+</ul>
+<p>Scanlio's use and transfer of information received from Google APIs to any other app adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
 
 <h2>4. Third-party resources the app loads</h2>
 <p>To work, the app fetches code and data from third parties. Those requests reveal your IP address and browser details to the host, as with any website:</p>
 <ul>
 <li><strong>OpenCV.js</strong> from docs.opencv.org (page-edge detection).</li>
 <li><strong>Tesseract.js</strong> engine and language data from jsDelivr / tessdata.projectnaptha.com (OCR). Recognition itself runs on your device; your images are not sent.</li>
-<li><strong>Google Identity Services</strong> from accounts.google.com and Microsoft's sign-in pages, only when you connect those accounts.</li>
+<li><strong>Google Identity Services</strong> and the <strong>Google Picker</strong> (accounts.google.com, apis.google.com) and Microsoft's sign-in pages, only when you connect those accounts.</li>
 <li><strong>Hosting</strong> by Vercel, which may keep standard request logs (IP address, user agent, URL) for security and operations.</li>
 </ul>
 
