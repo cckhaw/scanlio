@@ -7,10 +7,10 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['apple-touch-icon.png', 'icon.svg', 'oauth-callback.html'],
+      includeAssets: ['apple-touch-icon.png', 'icon.svg', 'oauth-callback.html', 'privacy.html', 'terms.html'],
       workbox: {
         importScripts: ['sw-sync.js'],
-        navigateFallbackDenylist: [/^\/oauth-callback\.html/],
+        navigateFallbackDenylist: [/^\/oauth-callback\.html/, /^\/privacy/, /^\/terms/],
         globPatterns: ['**/*.{js,css,html,svg,png,woff2}'],
         maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
         runtimeCaching: [

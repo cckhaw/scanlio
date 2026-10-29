@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="How Scanlio handles your data: scans stay on your device.">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<title>Privacy Policy — Scanlio</title>
+<style>
+:root{--bg:#F5F5F7;--card:rgba(255,255,255,.8);--fg:#1D1D1F;--mut:#6e6e73;--acc:#007AFF;--bd:rgba(0,0,0,.08)}
+@media(prefers-color-scheme:dark){:root{--bg:#000;--card:rgba(44,44,46,.75);--fg:#F5F5F7;--mut:#a1a1a6;--acc:#0A84FF;--bd:rgba(255,255,255,.18)}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:720px;margin:0 auto;padding:max(env(safe-area-inset-top),24px) 16px 64px}
+nav{display:flex;justify-content:space-between;align-items:center;padding:8px 0 20px;font-size:15px}
+nav a{color:var(--acc);text-decoration:none;min-height:44px;display:inline-flex;align-items:center}
+article{background:var(--card);border:1px solid var(--bd);border-radius:24px;padding:28px 24px;-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px)}
+h1{font-size:32px;letter-spacing:-.02em;margin:0 0 4px}
+h2{font-size:19px;margin:28px 0 6px}
+p,li{margin:8px 0}ul{padding-left:22px}
+.meta{color:var(--mut);font-size:14px}
+a{color:var(--acc)}
+footer{text-align:center;color:var(--mut);font-size:13px;margin-top:24px}
+</style>
+</head>
+<body>
+<main>
+<nav><a href="/">← Scanlio</a><a href="/terms">Terms</a></nav>
+<article>
+<h1>Privacy Policy</h1>
+<p class="meta">Last updated: 29 October 2026</p>
+<p>Scanlio ("the app") is a document scanner that runs in your browser. This policy explains what data the app handles and who can see it. The short version: <strong>your scans stay on your device unless you choose to upload them, and we run no servers that receive them.</strong></p>
+
+<h2>1. What stays on your device</h2>
+<ul>
+<li><strong>Scans and documents</strong> — page images, generated PDFs, thumbnails, names, tags and the text recognised from them (OCR) are stored in your browser's IndexedDB. We never receive them.</li>
+<li><strong>Preferences</strong> — theme, view mode, folder name, last-used upload destinations and any OAuth client IDs you enter are kept in the browser's local storage.</li>
+<li><strong>Sign-in tokens</strong> — access tokens for Google Drive and OneDrive are kept in session storage and disappear when the browser session ends.</li>
+<li><strong>iCloud Drive folder</strong> — if you pick a folder, the browser keeps a handle to it so the app can write files there.</li>
+</ul>
+<p>You can remove all of this at any time by deleting documents in the app or clearing the site's data in your browser settings.</p>
+
+<h2>2. Camera</h2>
+<p>The app asks for camera permission to scan pages. Video frames are analysed on your device to find page edges. They are not recorded or transmitted. You can revoke permission in your browser settings or import photos instead.</p>
+
+<h2>3. Cloud uploads you initiate</h2>
+<p>If you connect Google Drive or OneDrive and choose to upload a document, the app sends that PDF directly from your browser to the provider using your account. The app requests the narrowest access available: Google's <code>drive.file</code> scope (files the app creates) and Microsoft's <code>Files.ReadWrite.AppFolder</code> scope (the app's own folder). We do not receive your tokens or files. What the providers do with the data is governed by their own policies (<a href="https://policies.google.com/privacy">Google</a>, <a href="https://privacy.microsoft.com/privacystatement">Microsoft</a>). Saving to iCloud Drive uses your device's file picker or share sheet; the data goes to Apple only through those system features.</p>
+
+<h2>4. Third-party resources the app loads</h2>
+<p>To work, the app fetches code and data from third parties. Those requests reveal your IP address and browser details to the host, as with any website:</p>
+<ul>
+<li><strong>OpenCV.js</strong> from docs.opencv.org (page-edge detection).</li>
+<li><strong>Tesseract.js</strong> engine and language data from jsDelivr / tessdata.projectnaptha.com (OCR). Recognition itself runs on your device; your images are not sent.</li>
+<li><strong>Google Identity Services</strong> from accounts.google.com and Microsoft's sign-in pages, only when you connect those accounts.</li>
+<li><strong>Hosting</strong> by Vercel, which may keep standard request logs (IP address, user agent, URL) for security and operations.</li>
+</ul>
+
+<h2>5. What we do not do</h2>
+<ul>
+<li>No accounts, advertising, trackers or analytics.</li>
+<li>No selling or sharing of personal data — we do not have your documents to share.</li>
+<li>No use of your scans to train models.</li>
+</ul>
+
+<h2>6. Children</h2>
+<p>The app is not directed at children under 13 and we do not knowingly collect their data.</p>
+
+<h2>7. Your rights</h2>
+<p>Because we hold no personal data about you, access, deletion and export happen directly in the app and your browser. If you believe we hold information about you (for example from correspondence), open an issue at <a href="https://github.com/cckhaw/scanlio/issues">github.com/cckhaw/scanlio/issues</a> and we will respond.</p>
+
+<h2>8. Changes</h2>
+<p>If this policy changes, we will update the date above. Material changes will be noted in the app's repository.</p>
+
+<h2>9. Contact</h2>
+<p>Questions about this policy: open an issue at <a href="https://github.com/cckhaw/scanlio/issues">github.com/cckhaw/scanlio/issues</a>.</p>
+</article>
+<footer>© 2026 Scanlio · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></footer>
+</main>
+</body>
+</html>
