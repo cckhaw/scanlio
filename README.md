@@ -10,7 +10,7 @@ Stack: React 18 · Vite · TypeScript · Tailwind CSS 3 · `idb` · `pdf-lib` ·
 
 ```bash
 npm install
-cp .env.example .env      # optional: OAuth client IDs (can also be pasted in Settings → Developer credentials)
+cp .env.example .env      # OAuth client IDs: build-time configuration only (set as env vars in Vercel for production)
 npm run dev               # camera needs HTTPS or localhost
 npm run build && npm run preview
 ```

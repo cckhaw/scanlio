@@ -24,7 +24,7 @@ async function hasPermission(h: any, request = false) {
 export const iCloudDrive: CloudProvider = {
   id: 'icloud',
   label: 'iCloud Drive',
-  supported: () => true,       // always usable via share-sheet / download fallback
+  configured: () => true,      // always usable via share-sheet / download fallback
   isConnected: () => !hasFsAccess() || !!handle,
 
   async connect() {

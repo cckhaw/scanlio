@@ -31,12 +31,12 @@ const nameCache = new Map<string, string>();
 export const googleDrive: CloudProvider = {
   id: 'google',
   label: 'Google Drive',
-  supported: () => true,
+  configured: () => !!clientIds.get('google'),
   isConnected: () => { const t = tokenStore.get<Tok>('google'); return !!t && t.expires_at > Date.now() + 30_000; },
 
   async connect() {
     const client_id = clientIds.get('google');
-    if (!client_id) throw new AuthError('Add a Google OAuth client ID in Settings first.');
+    if (!client_id) throw new AuthError('Google Drive isn\'t available right now.');
     await loadGis();
     const tok = await new Promise<Tok>((resolve, reject) => {
       const client = (window as any).google.accounts.oauth2.initTokenClient({

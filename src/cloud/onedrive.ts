@@ -44,12 +44,12 @@ async function accessToken(): Promise<string> {
 export const oneDrive: CloudProvider = {
   id: 'onedrive',
   label: 'OneDrive',
-  supported: () => true,
+  configured: () => !!clientIds.get('microsoft'),
   isConnected: () => { const t = tokenStore.get<Tok>('ms'); return !!t && (t.expires_at > Date.now() || !!t.refresh_token); },
 
   async connect() {
     const client_id = clientIds.get('microsoft');
-    if (!client_id) throw new AuthError('Add a Microsoft application (client) ID in Settings first.');
+    if (!client_id) throw new AuthError('OneDrive isn\'t available right now.');
     const verifier = rand(48), state = rand(12);
     const challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
     const url = `${AUTH}/authorize?` + new URLSearchParams({

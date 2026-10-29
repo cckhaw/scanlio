@@ -6,8 +6,8 @@ export interface FolderEntry { id: string; name: string }
 export interface CloudProvider {
   id: ProviderId;
   label: string;
-  /** True when this browser/environment can use the provider at all. */
-  supported(): boolean;
+  /** False when the server-side configuration (client ID) for this provider is missing. */
+  configured(): boolean;
   /** True when credentials (or a folder grant) are usable right now. */
   isConnected(): boolean;
   /** Needs a user gesture (popup / picker). */

@@ -1,6 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { cloud } from '../cloud/CloudStorageManager';
-import { clientIds } from '../cloud/storage';
 import { queue } from '../lib/db';
 import { haptic } from '../lib/haptics';
 import { exportPrefs } from '../lib/export';
@@ -36,10 +35,7 @@ export function Settings() {
   const cs = useCloudState();
   const [items, setItems] = useState<QueueItem[]>([]);
   const [busy, setBusy] = useState<ProviderId | null>(null);
-  const [gid, setGid] = useState(clientIds.get('google'));
-  const [mid, setMid] = useState(clientIds.get('microsoft'));
   const [opts, setOpts] = useState<Opts>(exportPrefs.get);
-  const [gkey, setGkey] = useState(clientIds.get('googleKey'));
   const [storage, setStorage] = useState('');
 
   useEffect(() => { void queue.all().then(setItems); }, [cs.flushing, cs.progress]);
@@ -77,7 +73,7 @@ export function Settings() {
       </Section>
 
       <Section title="Cloud storage" footer={nativeIcloud ? 'iCloud Drive: pick your iCloud Drive folder once; files are written there directly.' : 'iCloud Drive on this browser uses the share sheet — choose “Save to Files › iCloud Drive” when prompted.'}>
-        {(['google', 'onedrive', 'icloud'] as ProviderId[]).map((id) => {
+        {(['google', 'onedrive', 'icloud'] as ProviderId[]).filter((id) => cloud.providers[id].configured()).map((id) => {
           const p = cloud.providers[id];
           const connected = p.isConnected() && (id !== 'icloud' || nativeIcloud);
           const attention = cs.needsAttention[id];
@@ -112,21 +108,6 @@ export function Settings() {
           {items.length > 0 ? <button className="btn-tinted" onClick={() => void cloud.retryFailed()}>Sync now</button> : <CheckIcon className="text-success" />}
         </div>
         {items.filter((i) => i.error).map((i) => <p key={i.id} className="px-4 py-2 text-[12px] text-danger">{cloud.providers[i.provider].label}: {i.error}</p>)}
-      </Section>
-
-      <Section title="Developer credentials" footer="OAuth client IDs for Google Drive and OneDrive. They can also be set at build time via VITE_GOOGLE_CLIENT_ID / VITE_MS_CLIENT_ID. Stored only on this device.">
-        <label className="flex min-h-[52px] items-center gap-3 px-4">
-          <span className="w-20 shrink-0 text-[15px]">Google</span>
-          <input value={gid} onChange={(e) => setGid(e.target.value)} onBlur={() => clientIds.set('google', gid)} placeholder="xxxx.apps.googleusercontent.com" autoCapitalize="none" autoCorrect="off" className="min-h-tap min-w-0 flex-1 bg-transparent text-[14px] outline-none" />
-        </label>
-        <label className="flex min-h-[52px] items-center gap-3 px-4">
-          <span className="w-20 shrink-0 text-[15px]">Google key</span>
-          <input value={gkey} onChange={(e) => setGkey(e.target.value)} onBlur={() => clientIds.set('googleKey', gkey)} placeholder="API key (optional, enables folder picker)" autoCapitalize="none" autoCorrect="off" className="min-h-tap min-w-0 flex-1 bg-transparent text-[14px] outline-none" />
-        </label>
-        <label className="flex min-h-[52px] items-center gap-3 px-4">
-          <span className="w-20 shrink-0 text-[15px]">Microsoft</span>
-          <input value={mid} onChange={(e) => setMid(e.target.value)} onBlur={() => clientIds.set('microsoft', mid)} placeholder="Application (client) ID" autoCapitalize="none" autoCorrect="off" className="min-h-tap min-w-0 flex-1 bg-transparent text-[14px] outline-none" />
-        </label>
       </Section>
 
       {storage && <p className="text-center text-[12px] text-tertiary">{storage}</p>}

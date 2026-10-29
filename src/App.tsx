@@ -4,13 +4,16 @@ import { CameraScanner } from './components/CameraScanner';
 import { Home } from './components/Home';
 import { Editor } from './components/Editor';
 import { WifiOffIcon } from './components/Icons';
-import { Library, PROVIDER_SHORT } from './components/Library';
+import { Library, PROVIDER_SHORT, useDocs } from './components/Library';
 import { SaveSheet } from './components/SaveSheet';
 import { Settings, useCloudState } from './components/Settings';
 import { TabBar, type Tab } from './components/TabBar';
 import { useToast } from './components/Toast';
 import { docs, queue, uid } from './lib/db';
 import { thumbnail } from './lib/image';
+import { saveToDevice, shareFiles } from './lib/deliver';
+import { buildExportFiles } from './lib/export';
+import { DocViewer } from './components/DocViewer';
 import { enqueueOcr, retryPendingOcr } from './lib/ocr';
 import { buildPdf } from './lib/pdf';
 import { useScan } from './state/ScanSession';
@@ -27,6 +30,8 @@ export default function App() {
   const [saveOpen, setSaveOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pending, setPending] = useState(0);
+  const [viewId, setViewId] = useState<string | null>(null);
+  const allDocs = useDocs();
   const { pages, renderFinal, clear, addPage } = useScan();
   const toast = useToast();
   const cs = useCloudState();
@@ -45,7 +50,7 @@ export default function App() {
 
   useEffect(() => { void queue.all().then((q) => setPending(q.length)); }, [cs.flushing, cs.progress]);
 
-  const save = async (v: { name: string; tags: string[]; destinations: ProviderId[]; export: ExportOptions }) => {
+  const save = async (v: { name: string; tags: string[]; destinations: ProviderId[]; export: ExportOptions; deliver?: 'device' | 'share' }) => {
     setSaving(true);
     try {
       const blobs: Blob[] = [];
@@ -62,6 +67,16 @@ export default function App() {
       setSaveOpen(false);
       setStep('camera');
       setTab('library');
+      if (v.deliver) {
+        const files = await buildExportFiles(doc, v.export);
+        if (v.deliver === 'device') { saveToDevice(files); toast(`Saved to Library and downloading ${files.length} file${files.length === 1 ? '' : 's'}`, 'success'); }
+        else {
+          const r = await shareFiles(files, doc.name);
+          if (r === 'blocked' || r === 'unsupported') { setViewId(doc.id); toast('Saved — tap Share to send it', 'info'); }
+          else toast(r === 'shared' ? 'Shared' : 'Saved to Library', 'success');
+        }
+        return;
+      }
       toast(v.destinations.length ? (navigator.onLine ? 'Saved — uploading…' : 'Saved — will upload when online') : 'Saved to Library', 'success');
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Could not save', 'error');
@@ -93,6 +108,7 @@ export default function App() {
       {tab === 'settings' && <div className="h-full overflow-y-auto"><Settings /></div>}
 
       {!editing && <TabBar tab={tab} onChange={setTab} badge={pending || undefined} />}
+      <DocViewer doc={allDocs?.find((d) => d.id === viewId) ?? null} onClose={() => setViewId(null)} />
       <SaveSheet open={saveOpen} pageCount={pages.length} saving={saving} onClose={() => !saving && setSaveOpen(false)} onSave={save} />
     </div>
   );
